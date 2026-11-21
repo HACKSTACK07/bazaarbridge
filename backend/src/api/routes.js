@@ -119,21 +119,21 @@ router.get('/products/:id/offers', async (req, res, next) => {
     let orderByClause = '';
     if (category === 'budget') {
       // Best Budget: selling_price ASC, tie-break: effective_days ASC, rating DESC
-      orderByClause = `ORDER BY o.selling_price ASC, effective_days ASC, d.dealer_rating DESC`;
+      orderByClause = `ORDER BY selling_price ASC, effective_days ASC, dealer_rating DESC`;
     } else if (category === 'fastest') {
       // Fastest Delivery: effective_days ASC, tie-break: selling_price ASC
-      orderByClause = `ORDER BY effective_days ASC, o.selling_price ASC`;
+      orderByClause = `ORDER BY effective_days ASC, selling_price ASC`;
     } else if (category === 'rated') {
       // Best Rated Dealer: dealer_rating DESC, tie-break: total_reviews DESC, price ASC
-      orderByClause = `ORDER BY d.dealer_rating DESC, d.total_reviews DESC, o.selling_price ASC`;
+      orderByClause = `ORDER BY dealer_rating DESC, total_reviews DESC, selling_price ASC`;
     } else if (category === 'available') {
       // Most Available: sellable free units DESC, tie-break: selling_price ASC
-      orderByClause = `ORDER BY free_units DESC, o.selling_price ASC`;
+      orderByClause = `ORDER BY free_units DESC, selling_price ASC`;
     } else if (category === 'value') {
       // Best Value will calculate weighted score across eligible set
-      orderByClause = `ORDER BY o.selling_price ASC`;
+      orderByClause = `ORDER BY selling_price ASC`;
     } else {
-      orderByClause = `ORDER BY o.selling_price ASC`;
+      orderByClause = `ORDER BY selling_price ASC`;
     }
 
     const offersSql = `
