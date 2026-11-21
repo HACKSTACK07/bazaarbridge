@@ -27,7 +27,13 @@ async function applySchema(reset = false) {
     console.log('Authoritative schema.sql applied cleanly and successfully.');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Failed to apply schema:', err);
+    if (err.code === '42P07') {
+      console.error('\n[Migration Notice]: Database tables already exist.');
+      console.error('To cleanly reset and re-apply schema.sql from scratch, run:');
+      console.error('  npm run migrate:reset   OR   node src/db/migrate.js --reset\n');
+    } else {
+      console.error('Failed to apply schema:', err);
+    }
     throw err;
   } finally {
     client.release();
