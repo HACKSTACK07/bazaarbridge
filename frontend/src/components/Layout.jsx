@@ -10,8 +10,14 @@ export default function Layout() {
     { path: '/products', label: 'Products' },
     { path: '/search', label: 'Search' },
     { path: '/outside-bangalore', label: 'Outside Bangalore' },
+    { path: '/assistant', label: 'Assistant' },
+    { path: '/compare', label: 'Compare' },
     { path: '/cart', label: 'Cart' },
     { path: '/orders', label: 'Orders' },
+    { path: '/wishlist', label: 'Wishlist' },
+    { path: '/saved-for-later', label: 'Saved for Later' },
+    { path: '/addresses', label: 'Addresses' },
+    { path: '/coupons', label: 'Coupons' },
   ]
 
   return (
@@ -21,12 +27,12 @@ export default function Layout() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <Link to="/" className="text-xl font-bold text-gray-900">BazaarBridge</Link>
-              <div className="hidden md:ml-8 md:flex md:space-x-4">
+              <div className="hidden md:ml-8 md:flex md:space-x-2 md:flex-wrap">
                 {navLinks.map((link) => (
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                       location.pathname === link.path
                         ? 'bg-blue-50 text-blue-700'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'

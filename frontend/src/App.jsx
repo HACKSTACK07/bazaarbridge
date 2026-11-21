@@ -14,6 +14,12 @@ import OutsideBangalore from './pages/OutsideBangalore'
 import Orders from './pages/Orders'
 import OrderTracking from './pages/OrderTracking'
 import Simulator from './pages/Simulator'
+import Assistant from './pages/Assistant'
+import Coupons from './pages/Coupons'
+import Addresses from './pages/Addresses'
+import Wishlist from './pages/Wishlist'
+import SaveForLater from './pages/SaveForLater'
+import Compare from './pages/Compare'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -53,6 +59,12 @@ function AppRoutes() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderTracking />} />
+        <Route path="/assistant" element={<Assistant />} />
+        <Route path="/coupons" element={<Coupons />} />
+        <Route path="/addresses" element={<Addresses />} />
+        <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/saved-for-later" element={<SaveForLater />} />
+        <Route path="/compare" element={<Compare />} />
       </Route>
       <Route element={<AdminRoute><Layout /></AdminRoute>}>
         <Route path="/simulator" element={<Simulator />} />
