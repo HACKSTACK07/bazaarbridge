@@ -8,8 +8,10 @@
     "dev": "node --watch src/server.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/seed/seed.js",
-    "test": "node src/tests/phase1.test.js",
-    "test:all": "node src/db/verify-hand.js && node src/tests/phase1.test.js",
+    "test": "node src/tests/phase1.test.js && node src/tests/phase2.test.js",
+    "test:phase1": "node src/tests/phase1.test.js",
+    "test:phase2": "node src/tests/phase2.test.js",
+    "test:all": "node src/db/verify-hand.js && node src/tests/phase1.test.js && node src/tests/phase2.test.js",
     "verify:prep": "node src/db/verify-hand.js"
   },
   "dependencies": {
