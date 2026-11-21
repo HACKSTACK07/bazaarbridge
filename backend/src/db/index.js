@@ -7,14 +7,21 @@ const dotenv = require('dotenv');
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-const connectionString = process.env.PG_URI || process.env.PG_URL;
+const rawUri = process.env.PG_URI || process.env.PG_URL;
+let connectionString = rawUri;
+let isSsl = false;
+
+if (connectionString && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1')) {
+  isSsl = true;
+  connectionString = connectionString.replace(/[?&]sslmode=[^&]+/, '');
+}
 
 const caPath = process.env.PG_CA_PATH || process.env.KAFKA_CA_PATH;
 const caCert = caPath && fs.existsSync(caPath) ? fs.readFileSync(caPath).toString() : undefined;
 
 const poolConfig = {
   connectionString: connectionString || 'postgresql://localhost:5432/bazaarbridge',
-  ssl: connectionString && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1')
+  ssl: isSsl
     ? {
         rejectUnauthorized: false,
         ca: caCert
