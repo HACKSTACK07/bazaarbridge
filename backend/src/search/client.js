@@ -81,7 +81,15 @@ class OpenSearchClient {
         });
       });
 
-      req.on('error', reject);
+      req.on('error', (err) => {
+        // If network error (not deployed / unreachable), gracefully fall back to local mock mode
+        if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+          console.warn(`[OpenSearch] Cluster unreachable (${err.code}), operating in local mock mode.`);
+          this.mockMode = true;
+          return this._mockRequest(method, path, body, params).then(resolve).catch(reject);
+        }
+        reject(err);
+      });
       if (payload) req.write(payload);
       req.end();
     });
