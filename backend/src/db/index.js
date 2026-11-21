@@ -40,8 +40,18 @@ async function getClient() {
   return client;
 }
 
+async function checkConnection() {
+  try {
+    const res = await query('SELECT 1 as connected, current_database() as db, version();');
+    return { ok: true, db: res.rows[0].db, version: res.rows[0].version };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   pool,
   query,
-  getClient
+  getClient,
+  checkConnection
 };
