@@ -122,16 +122,18 @@ function requireAuth(req, res, next) {
 
 /**
  * Middleware: requireAdmin
- * Requires user to have role 'admin'
+ * Requires valid JWT and user to have role 'admin'
  */
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({
-      error: 'FORBIDDEN',
-      message: 'Admin access required'
-    });
-  }
-  next();
+  requireAuth(req, res, () => {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Admin access required'
+      });
+    }
+    next();
+  });
 }
 
 module.exports = {
