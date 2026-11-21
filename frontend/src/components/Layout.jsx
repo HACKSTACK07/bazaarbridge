@@ -1,6 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { formatPaise } from '../kit/formatPaise'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -10,7 +9,9 @@ export default function Layout() {
     { path: '/', label: 'Home' },
     { path: '/products', label: 'Products' },
     { path: '/search', label: 'Search' },
+    { path: '/outside-bangalore', label: 'Outside Bangalore' },
     { path: '/cart', label: 'Cart' },
+    { path: '/orders', label: 'Orders' },
   ]
 
   return (

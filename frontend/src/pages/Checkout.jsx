@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../kit/api'
 import { formatPaise } from '../kit/formatPaise'
@@ -7,10 +7,13 @@ export default function Checkout() {
   const [cart, setCart] = useState({ items: [] })
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [checkingPin, setCheckingPin] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
   const [priceChangedData, setPriceChangedData] = useState(null)
   const [outOfStockItems, setOutOfStockItems] = useState([])
+  const [pinCheckResult, setPinCheckResult] = useState(null)
+  const [modePreferences, setModePreferences] = useState({})
   const navigate = useNavigate()
 
   const fetchCart = useCallback(async () => {
@@ -28,6 +31,43 @@ export default function Checkout() {
     fetchCart()
   }, [fetchCart])
 
+  useEffect(() => {
+    const prefs = {}
+    cart.items.forEach(item => {
+      if (item.reservation_id) {
+        prefs[item.reservation_id] = 'standard'
+      }
+    })
+    setModePreferences(prefs)
+    setPinCheckResult(null)
+  }, [cart.items])
+
+  const handlePinCheck = async (pinCode) => {
+    if (!pinCode || pinCode.length !== 6) return
+    setCheckingPin(true)
+    setError('')
+    try {
+      const res = await api.post('/check-pin', { pin_code: pinCode })
+      setPinCheckResult(res)
+    } catch (err) {
+      setError(err.body?.message ?? 'Failed to check PIN')
+      console.error(err)
+    } finally {
+      setCheckingPin(false)
+    }
+  }
+
+  const handlePinBlur = (e) => {
+    const pinCode = e.target.value
+    if (pinCode && pinCode.length === 6) {
+      handlePinCheck(pinCode)
+    }
+  }
+
+  const handleModeChange = (reservationId, mode) => {
+    setModePreferences(prev => ({ ...prev, [reservationId]: mode }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -43,18 +83,16 @@ export default function Checkout() {
       .filter(item => item.reservation_id)
       .map(item => item.reservation_id)
 
-    const modePreferences = {}
-    cart.items.forEach(item => {
-      if (item.reservation_id) {
-        modePreferences[item.reservation_id] = 'standard'
-      }
+    const finalModePreferences = {}
+    reservationIds.forEach(id => {
+      finalModePreferences[id] = modePreferences[id] || 'standard'
     })
 
     try {
       const res = await api.post('/orders', {
         reservation_ids: reservationIds,
         address: { pin_code: pinCode },
-        mode_preferences: modePreferences,
+        mode_preferences: finalModePreferences,
         coupon_code: couponCode
       })
       setSuccess(res)
@@ -68,6 +106,8 @@ export default function Checkout() {
       } else if (err.code === 'RESERVATION_EXPIRED') {
         setError('Reservation expired. Re-reserving...')
         await reReserveAndRetry()
+      } else if (err.code === 'QUICK_NOT_AVAILABLE') {
+        setError('Quick delivery not available for some items. Please adjust mode preferences.')
       } else {
         setError(err.body?.message ?? 'Checkout failed. Please try again.')
       }
@@ -108,17 +148,15 @@ export default function Checkout() {
         .filter(item => item.reservation_id)
         .map(item => item.reservation_id)
 
-      const modePreferences = {}
-      cart.items.forEach(item => {
-        if (item.reservation_id) {
-          modePreferences[item.reservation_id] = 'standard'
-        }
+      const finalModePreferences = {}
+      reservationIds.forEach(id => {
+        finalModePreferences[id] = modePreferences[id] || 'standard'
       })
 
       const res = await api.post('/orders', {
         reservation_ids: reservationIds,
         address: { pin_code: pinCode },
-        mode_preferences: modePreferences,
+        mode_preferences: finalModePreferences,
         coupon_code: couponCode
       })
       setSuccess(res)
@@ -223,8 +261,15 @@ export default function Checkout() {
 
   const itemsTotal = cart.items.reduce((sum, item) => sum + (item.price_snapshot || 0) * item.quantity, 0)
 
+  const getGroupInfo = (item) => {
+    if (!item.reservation_id || !pinCheckResult) return null
+    // In a real implementation, this would map items to groups
+    // For now, we'll use the pinCheckResult to show available modes per item type
+    return pinCheckResult
+  }
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
         <p className="mt-1 text-gray-600">Review your order and provide delivery details.</p>
@@ -317,11 +362,19 @@ export default function Checkout() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Delivery Fee</span>
-              <span className="font-medium">Calculated at checkout</span>
+              <span className="font-medium">
+                {pinCheckResult
+                  ? formatPaise(pinCheckResult.standard_available ? 2900 : 0)
+                  : 'Calculated at checkout'}
+              </span>
             </div>
             <div className="flex justify-between border-t pt-2 font-semibold text-lg">
               <span>Total</span>
-              <span id="total-amount">{formatPaise(itemsTotal)} + delivery</span>
+              <span id="total-amount">
+                {pinCheckResult
+                  ? formatPaise(itemsTotal + (pinCheckResult.standard_available ? 2900 : 0))
+                  : formatPaise(itemsTotal) + ' + delivery'}
+              </span>
             </div>
           </div>
         </div>
@@ -333,17 +386,93 @@ export default function Checkout() {
               <label htmlFor="pin_code" className="block text-sm font-medium text-gray-700 mb-1">
                 PIN Code <span className="text-red-500">*</span>
               </label>
-              <input
-                id="pin_code"
-                name="pin_code"
-                type="text"
-                required
-                pattern="[0-9]{6}"
-                placeholder="560001"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <div className="relative">
+                <input
+                  id="pin_code"
+                  name="pin_code"
+                  type="text"
+                  required
+                  pattern="[0-9]{6}"
+                  placeholder="560001"
+                  onBlur={handlePinBlur}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                />
+                {checkingPin && (
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
               <p className="mt-1 text-xs text-gray-500">6-digit PIN code for delivery availability check</p>
             </div>
+
+            {pinCheckResult && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-3">Delivery Options</h3>
+                <div className="space-y-3">
+                  {cart.items.map((item) => {
+                    if (!item.reservation_id) return null
+                    const reservationId = item.reservation_id
+                    const isHubItem = false
+                    const quickAvailable = pinCheckResult.quick_available && isHubItem
+                    const standardAvailable = pinCheckResult.standard_available
+
+                    return (
+                      <div key={reservationId} className="border border-gray-200 rounded-lg p-4">
+                        <p className="font-medium text-gray-900 mb-2">
+                          {item.offer_id ? `Offer ${item.offer_id.slice(0, 8)}` : 'Product'} — {item.quantity} unit(s)
+                        </p>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`mode-${reservationId}`}
+                              value="standard"
+                              checked={modePreferences[reservationId] === 'standard'}
+                              onChange={() => handleModeChange(reservationId, 'standard')}
+                              disabled={!standardAvailable || submitting}
+                              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <span className="font-medium text-gray-900">Standard Delivery</span>
+                              <span className="ml-2 text-sm text-gray-500">
+                                {itemsTotal >= 99900 ? 'FREE' : formatPaise(2900)}
+                              </span>
+                            </div>
+                          </label>
+                          {quickAvailable && (
+                            <label className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`mode-${reservationId}`}
+                                value="quick"
+                                checked={modePreferences[reservationId] === 'quick'}
+                                onChange={() => handleModeChange(reservationId, 'quick')}
+                                disabled={submitting}
+                                className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <span className="font-medium text-gray-900">Quick Delivery</span>
+                                <span className="ml-2 text-sm text-gray-500">{formatPaise(4900)}</span>
+                              </div>
+                            </label>
+                          )}
+                          {!quickAvailable && standardAvailable && (
+                            <p className="text-sm text-gray-500 ml-6">Quick delivery not available for this PIN code</p>
+                          )}
+                          {!standardAvailable && (
+                            <p className="text-sm text-red-600 ml-6">No delivery options available for this PIN code</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <div>
               <label htmlFor="coupon_code" className="block text-sm font-medium text-gray-700 mb-1">

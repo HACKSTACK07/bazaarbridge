@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { api, getAuthToken } from './kit/api'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import AdminLogin from './pages/AdminLogin'
@@ -11,6 +10,10 @@ import Search from './pages/Search'
 import Comparison from './pages/Comparison'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
+import OutsideBangalore from './pages/OutsideBangalore'
+import Orders from './pages/Orders'
+import OrderTracking from './pages/OrderTracking'
+import Simulator from './pages/Simulator'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -23,6 +26,12 @@ function PublicRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   return user ? <Navigate to="/" replace /> : children
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  return user && user.role === 'admin' ? children : <Navigate to="/login" replace />
 }
 
 function AppRoutes() {
@@ -39,8 +48,14 @@ function AppRoutes() {
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/search" element={<Search />} />
         <Route path="/products/:id/compare" element={<Comparison />} />
+        <Route path="/outside-bangalore" element={<OutsideBangalore />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/:id" element={<OrderTracking />} />
+      </Route>
+      <Route element={<AdminRoute><Layout /></AdminRoute>}>
+        <Route path="/simulator" element={<Simulator />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
