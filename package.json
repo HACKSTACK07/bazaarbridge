@@ -1,0 +1,23 @@
+{
+  "name": "bazaarbridge",
+  "version": "7.2.0",
+  "description": "BazaarBridge - Digital marketplace connecting local retailers with online customers",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "seed": "node backend/src/seed/seed.js",
+    "seed:verify": "node backend/src/seed/verify.js",
+    "test": "node scripts/run-tests.js",
+    "secrets:check": "bash scripts/check-secrets.sh",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {}
+}

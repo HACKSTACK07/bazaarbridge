@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Aiven-compatible)
+  postgres:
+    image: postgres:15-alpine
+    container_name: bazaarbridge-postgres
+    environment:
+      POSTGRES_DB: bazaarbridge
+      POSTGRES_USER: bazaarbridge
+      POSTGRES_PASSWORD: bazaarbridge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/src/seed/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bazaarbridge -d bazaarbridge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Kafka (Aiven-compatible, KRaft mode)
+  kafka:
+    image: apache/kafka:3.7
+    container_name: bazaarbridge-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 2
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Kafka Topic Creator
+  kafka-topics:
+    image: apache/kafka:3.7
+    container_name: bazaarbridge-kafka-topics
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: >
+      /bin/bash -c "
+        kafka-topics.sh --create --topic bazaar.core.events --partitions 2 --replication-factor 1 --bootstrap-server kafka:9092 &&
+        kafka-topics.sh --create --topic bazaar.fulfilment.events --partitions 2 --replication-factor 1 --bootstrap-server kafka:9092 &&
+        echo 'Topics created successfully'
+      "
+    environment:
+      KAFKA_BROKER: kafka:9092
+
+  # OpenSearch (Aiven-compatible)
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: bazaarbridge-opensearch
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin@1234
+      - DISABLE_SECURITY_PLUGIN=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch_data:/var/lib/opensearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bazaarbridge-backend
+    environment:
+      PORT: 11597
+      PG_URI: postgres://bazaarbridge:bazaarbridge@postgres:5432/bazaarbridge
+      KAFKA_BROKERS: kafka:9092
+      OPENSEARCH_URL: http://opensearch:9200
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: Admin@1234
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      OTP_HASH_SECRET: dev-otp-secret-change-in-production
+      SEED_ADMIN_PASSWORD: Admin@1234
+      FEATURE_FLAGS: FEATURE_COUPONS,FEATURE_WISHLIST,FEATURE_ALERTS,FEATURE_ADDRESSES,FEATURE_SAVE_LATER,FEATURE_COMPARE,FEATURE_ASSISTANT,FEATURE_REVIEWS,FEATURE_SUPPORT,FEATURE_SIM_SCREENS
+    ports:
+      - "11597:11597"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Frontend Dev Server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bazaarbridge-frontend
+    environment:
+      VITE_API_BASE: http://localhost:11597/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  kafka_data:
+  opensearch_data:
