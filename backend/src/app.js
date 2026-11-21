@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const apiRoutes = require('./api/routes');
 const { checkConnection } = require('./db');
 
@@ -32,13 +34,30 @@ app.get('/api/health', async (req, res) => {
 // Authoritative API routes under /api
 app.use('/api', apiRoutes);
 
-// 404 handler
-app.use((req, res) => {
+// 404 for unhandled API requests
+app.use('/api', (req, res) => {
   res.status(404).json({
     error: 'NOT_FOUND',
     message: `Cannot ${req.method} ${req.path}`
   });
 });
+
+// Serve frontend static build files (Unified single host)
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+} else {
+  // Fallback 404 handler if frontend dist not yet built
+  app.use((req, res) => {
+    res.status(404).json({
+      error: 'NOT_FOUND',
+      message: `Cannot ${req.method} ${req.path}`
+    });
+  });
+}
 
 // Standardized error handler per api-contract.md: {"error": "CODE", "message": "..."}
 app.use((err, req, res, next) => {
