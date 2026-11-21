@@ -11,7 +11,6 @@ My responsibilities:
 - Verify the project's core capabilities.
 - Build optional simulated demo screens.
 - Maintain project documentation.
-- Act as Gate Referee and Timekeeper.
 
 ## 2. My File Ownership
 
