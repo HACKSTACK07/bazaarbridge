@@ -27,9 +27,20 @@ try {
 }
 
 // =====================================================================
-// 1. AUTHENTICATION (POST /api/auth/login)
+// 1. AUTHENTICATION (POST /api/auth/login, GET /api/auth/me)
 // =====================================================================
 router.post('/auth/login', authRateLimiter, login);
+
+router.get('/auth/me', requireAuth, (req, res) => {
+  res.json({
+    user: {
+      user_id: req.user.user_id,
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role
+    }
+  });
+});
 
 // =====================================================================
 // 2. PRODUCTS & OFFERS (GET /api/products, /:id, /:id/offers)
